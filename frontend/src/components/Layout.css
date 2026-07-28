@@ -1,0 +1,32 @@
+.layout__header {
+  background: #1a1a2e;
+  color: #fff;
+  padding: 1.5rem 2rem;
+}
+
+.layout__header h1 {
+  font-size: 1.5rem;
+}
+
+.layout__header p {
+  margin-top: 0.25rem;
+  opacity: 0.8;
+  font-size: 0.9rem;
+}
+
+.layout__main {
+  padding: 2rem;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.dashboard__card {
+  background: #fff;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.dashboard__card p + p {
+  margin-top: 0.5rem;
+}
