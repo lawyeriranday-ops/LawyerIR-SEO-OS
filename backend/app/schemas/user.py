@@ -1,28 +1,29 @@
-import uuid
 from datetime import datetime
+from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, EmailStr, ConfigDict
 
 
 class UserCreate(BaseModel):
     email: EmailStr
-    username: str = Field(min_length=3, max_length=100)
-    password: str = Field(min_length=8, max_length=128)
+    username: str
+    password: str
 
 
 class UserUpdate(BaseModel):
     email: EmailStr | None = None
-    username: str | None = Field(default=None, min_length=3, max_length=100)
-    password: str | None = Field(default=None, min_length=8, max_length=128)
+    username: str | None = None
+    password: str | None = None
     is_active: bool | None = None
 
 
 class UserRead(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: uuid.UUID
+    id: UUID
     email: EmailStr
     username: str
     is_active: bool
     created_at: datetime
-    updated_at: datetime
+
+    model_config = ConfigDict(
+        from_attributes=True
+    )

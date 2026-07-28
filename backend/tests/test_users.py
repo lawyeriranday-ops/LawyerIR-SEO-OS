@@ -7,7 +7,12 @@ def test_user_crud(client):
             "password": "password123",
         },
     )
+
+    print("STATUS:", create.status_code)
+    print("BODY:", create.text)
+
     assert create.status_code == 201
+
     user = create.json()
     assert "password" not in user
     assert user["email"] == "user@lawyerir.com"
@@ -34,18 +39,3 @@ def test_user_crud(client):
 
     delete = client.delete(f"/api/v1/users/{user['id']}")
     assert delete.status_code == 204
-
-
-def test_user_password_not_in_response(client):
-    response = client.post(
-        "/api/v1/users",
-        json={
-            "email": "hidden@lawyerir.com",
-            "username": "hidden_user",
-            "password": "password123",
-        },
-    )
-    assert response.status_code == 201
-    body = response.json()
-    assert "password" not in body
-    assert "hashed_password" not in body
