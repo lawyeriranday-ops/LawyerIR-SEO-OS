@@ -7,6 +7,8 @@ from bs4 import BeautifulSoup
 import httpx
 
 from app.services.keyword_engine import KeywordAnalyzerEngine
+from app.services.link_engine import LinkIntelligenceEngine
+
 
 ENGINE_VERSION = "1.0.0"
 RULESET_VERSION = "1.0.0"
@@ -581,17 +583,37 @@ class SEOAuditEngine:
                 if rec not in recommendations:
                     recommendations.append(rec)
 
+        link_analyzer = LinkIntelligenceEngine()
+        link_intelligence = link_analyzer.analyze_links(html=html, base_url=base_url, soup=soup)
+        for iss in link_intelligence.get("issues", []):
+            issues.append(iss)
+        for rec in link_intelligence.get("recommendations", []):
+            if rec not in recommendations:
+                recommendations.append(rec)
+
+        # Deduplicate issues based on (severity, type, message) tuple
+        unique_issues = []
+        seen_issue_keys = set()
+        for iss in issues:
+            key = (iss.get("severity"), iss.get("type"), iss.get("message"))
+            if key not in seen_issue_keys:
+                seen_issue_keys.add(key)
+                unique_issues.append(iss)
+
         return {
             "engine_version": ENGINE_VERSION,
             "ruleset_version": RULESET_VERSION,
             "score": max(0, min(100, overall_score)),
             "metrics": metrics,
             "score_breakdown": score_breakdown,
-            "issues": issues,
+            "issues": unique_issues,
             "recommendations": recommendations,
             "rules_evaluated": len(rule_results),
             "keyword_analysis": keyword_analysis,
+            "link_intelligence": link_intelligence,
         }
+
+
 
     async def fetch_and_analyze(
         self,

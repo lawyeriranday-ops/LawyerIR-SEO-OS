@@ -78,6 +78,7 @@ def test_run_audit_endpoint_with_html(client, seed_url):
     assert "metrics" in decoded_summary
     assert "score_breakdown" in decoded_summary
     assert decoded_summary.get("keyword_analysis") is None
+    assert decoded_summary.get("link_intelligence") is not None
 
     # Verify Url model updated fields
     url_res = client.get(f"/api/v1/urls/{url_id}")
@@ -118,3 +119,33 @@ def test_run_audit_endpoint_with_target_keyword(client, seed_url):
     assert kw_analysis["metrics"]["in_title"] is True
     assert kw_analysis["metrics"]["in_h1"] is True
     assert kw_analysis["metrics"]["keyword_count"] >= 3
+    assert decoded_summary.get("link_intelligence") is not None
+
+
+def test_run_audit_endpoint_includes_link_intelligence(client, seed_url):
+    url_id = seed_url["id"]
+    sample_html = """<!DOCTYPE html>
+<html lang="fa">
+<head>
+    <title>عنوان تست لینک‌ها</title>
+</head>
+<body>
+    <a href="/internal-page">لینک داخلی</a>
+    <a href="https://external.org" rel="nofollow">لینک خارجی</a>
+</body>
+</html>"""
+
+    response = client.post(
+        f"/api/v1/urls/{url_id}/audits/run",
+        json={"html_content": sample_html},
+    )
+    assert response.status_code == 201
+    audit = response.json()
+
+    decoded_summary = decode_audit_summary(audit["summary"])
+    assert "link_intelligence" in decoded_summary
+    link_info = decoded_summary["link_intelligence"]
+    assert "score" in link_info
+    assert "metrics" in link_info
+    assert link_info["metrics"]["total_links"] == 2
+
