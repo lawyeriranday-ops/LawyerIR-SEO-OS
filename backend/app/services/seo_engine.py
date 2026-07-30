@@ -6,6 +6,8 @@ import re
 from bs4 import BeautifulSoup
 import httpx
 
+from app.services.keyword_engine import KeywordAnalyzerEngine
+
 ENGINE_VERSION = "1.0.0"
 RULESET_VERSION = "1.0.0"
 
@@ -41,6 +43,7 @@ class AuditContext:
     soup: BeautifulSoup
     text_content: str
     config: SEOAuditConfig
+    target_keyword: str | None = None
     engine_version: str = ENGINE_VERSION
     ruleset_version: str = RULESET_VERSION
 
@@ -497,7 +500,11 @@ class SEOAuditEngine:
         }
 
     def analyze_html(
-        self, html: str, base_url: str = "", config: SEOAuditConfig | None = None
+        self,
+        html: str,
+        base_url: str = "",
+        config: SEOAuditConfig | None = None,
+        target_keyword: str | None = None,
     ) -> dict:
         cfg = config or SEOAuditConfig()
         soup = BeautifulSoup(html, "html.parser")
@@ -514,6 +521,7 @@ class SEOAuditEngine:
             soup=soup,
             text_content=text_content,
             config=cfg,
+            target_keyword=target_keyword,
             engine_version=ENGINE_VERSION,
             ruleset_version=RULESET_VERSION,
         )
@@ -549,6 +557,30 @@ class SEOAuditEngine:
 
         overall_score = round((total_earned / total_possible) * 100) if total_possible > 0 else 0
 
+        keyword_analysis = None
+        if target_keyword and target_keyword.strip():
+            kw_analyzer = KeywordAnalyzerEngine()
+            h2_texts = [h2.get_text(strip=True) for h2 in soup.find_all("h2")]
+            image_alts = [
+                img.get("alt", "").strip() for img in soup.find_all("img")
+                if img.get("alt") and img.get("alt").strip()
+            ]
+            keyword_analysis = kw_analyzer.analyze_keyword(
+                target_keyword=target_keyword,
+                text_content=text_content,
+                title=metrics["title"],
+                meta_desc=metrics["meta_description"],
+                h1=metrics["h1"],
+                h2_list=h2_texts,
+                image_alts=image_alts,
+                url_path=base_url,
+            )
+            for iss in keyword_analysis.get("issues", []):
+                issues.append(iss)
+            for rec in keyword_analysis.get("recommendations", []):
+                if rec not in recommendations:
+                    recommendations.append(rec)
+
         return {
             "engine_version": ENGINE_VERSION,
             "ruleset_version": RULESET_VERSION,
@@ -558,10 +590,15 @@ class SEOAuditEngine:
             "issues": issues,
             "recommendations": recommendations,
             "rules_evaluated": len(rule_results),
+            "keyword_analysis": keyword_analysis,
         }
 
     async def fetch_and_analyze(
-        self, url: str, config: SEOAuditConfig | None = None, retries: int = 2
+        self,
+        url: str,
+        config: SEOAuditConfig | None = None,
+        target_keyword: str | None = None,
+        retries: int = 2,
     ) -> dict:
         headers = {
             "User-Agent": "LawyerIR-SEO-OS/1.0 (SEO Audit Engine)"
@@ -575,7 +612,12 @@ class SEOAuditEngine:
                     response = await client.get(url, headers=headers)
                     response.raise_for_status()
                     html = response.text
-                    return self.analyze_html(html=html, base_url=str(response.url), config=config)
+                    return self.analyze_html(
+                        html=html,
+                        base_url=str(response.url),
+                        config=config,
+                        target_keyword=target_keyword,
+                    )
             except (httpx.HTTPError, httpx.TimeoutException) as exc:
                 last_error = exc
                 logger.warning("Attempt %d failed fetching %s: %r", attempt + 1, url, exc)
@@ -594,5 +636,6 @@ class SEOAuditEngine:
             }],
             "recommendations": ["Verify the target URL is publicly accessible and responding."],
             "rules_evaluated": 0,
+            "keyword_analysis": None,
             "error": str(last_error),
         }

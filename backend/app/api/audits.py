@@ -81,11 +81,15 @@ async def run_url_audit(
     db: Session = Depends(get_db),
 ):
     html_content = payload.html_content if payload else None
+    target_keyword = payload.target_keyword if payload else None
     try:
-        audit = await audit_service.async_run_audit_for_url(db, url_id, html_content=html_content)
+        audit = await audit_service.async_run_audit_for_url(
+            db, url_id, html_content=html_content, target_keyword=target_keyword
+        )
         return _audit_to_read(audit)
     except ValueError as exc:
         handle_service_error(exc)
+
 
 
 @router.get("/audits/{audit_id}", response_model=AuditRead)

@@ -91,6 +91,7 @@ class AuditService:
         url_id,
         html_content: str | None = None,
         config: SEOAuditConfig | None = None,
+        target_keyword: str | None = None,
     ) -> Audit:
         """Executes SEO audit engine analysis for a URL record and persists results."""
         url = db.query(Url).filter(Url.id == url_id).first()
@@ -100,14 +101,30 @@ class AuditService:
         engine = SEOAuditEngine()
 
         if html_content is not None:
-            result = engine.analyze_html(html=html_content, base_url=url.full_url, config=config)
+            result = engine.analyze_html(
+                html=html_content,
+                base_url=url.full_url,
+                config=config,
+                target_keyword=target_keyword,
+            )
         else:
             try:
-                result = asyncio.run(engine.fetch_and_analyze(url=url.full_url, config=config))
+                result = asyncio.run(
+                    engine.fetch_and_analyze(
+                        url=url.full_url,
+                        config=config,
+                        target_keyword=target_keyword,
+                    )
+                )
             except RuntimeError:
-                # If an event loop is already running (e.g. inside FastAPI async handler)
                 loop = asyncio.get_event_loop()
-                result = loop.run_until_complete(engine.fetch_and_analyze(url=url.full_url, config=config))
+                result = loop.run_until_complete(
+                    engine.fetch_and_analyze(
+                        url=url.full_url,
+                        config=config,
+                        target_keyword=target_keyword,
+                    )
+                )
 
         metrics = result.get("metrics", {})
         if metrics.get("title"):
@@ -134,6 +151,7 @@ class AuditService:
         url_id,
         html_content: str | None = None,
         config: SEOAuditConfig | None = None,
+        target_keyword: str | None = None,
     ) -> Audit:
         """Async version of run_audit_for_url for async FastAPI endpoints."""
         url = db.query(Url).filter(Url.id == url_id).first()
@@ -143,9 +161,18 @@ class AuditService:
         engine = SEOAuditEngine()
 
         if html_content is not None:
-            result = engine.analyze_html(html=html_content, base_url=url.full_url, config=config)
+            result = engine.analyze_html(
+                html=html_content,
+                base_url=url.full_url,
+                config=config,
+                target_keyword=target_keyword,
+            )
         else:
-            result = await engine.fetch_and_analyze(url=url.full_url, config=config)
+            result = await engine.fetch_and_analyze(
+                url=url.full_url,
+                config=config,
+                target_keyword=target_keyword,
+            )
 
         metrics = result.get("metrics", {})
         if metrics.get("title"):
@@ -165,3 +192,4 @@ class AuditService:
         db.add(audit)
         db.commit()
         return self.get_audit(db, audit.id)
+

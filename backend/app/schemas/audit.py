@@ -31,4 +31,6 @@ class AuditRead(BaseModel):
 
 
 class AuditRunRequest(BaseModel):
-    html_content: str | None = Field(default=None, description="Optional raw HTML content to analyze instead of fetching live URL")
+    html_content: str | None = Field(default=None, description="Optional raw HTML content to analyze instead of fetching live URL")
+    target_keyword: str | None = Field(default=None, description="Optional target keyword to analyze content optimization against")
+

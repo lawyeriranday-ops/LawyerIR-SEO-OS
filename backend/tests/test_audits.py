@@ -77,6 +77,7 @@ def test_run_audit_endpoint_with_html(client, seed_url):
     assert decoded_summary["ruleset_version"] == "1.0.0"
     assert "metrics" in decoded_summary
     assert "score_breakdown" in decoded_summary
+    assert decoded_summary.get("keyword_analysis") is None
 
     # Verify Url model updated fields
     url_res = client.get(f"/api/v1/urls/{url_id}")
@@ -85,3 +86,35 @@ def test_run_audit_endpoint_with_html(client, seed_url):
     assert url_data["title"] == "عنوان تست مشاوره حقوقی وکلای دادگستری"
     assert url_data["meta_description"] == "توضیحات متای تست برای آنالیز سئوی آنلاین وکیل پایه یک دادگستری و مشاوره حقوقی تخصصی."
     assert url_data["last_crawled_at"] is not None
+
+
+def test_run_audit_endpoint_with_target_keyword(client, seed_url):
+    url_id = seed_url["id"]
+    sample_html = """<!DOCTYPE html>
+<html lang="fa">
+<head>
+    <title>وکیل ملکی در تهران - مشاوره تخصصی</title>
+    <meta name="description" content="بهترین وکیل ملکی در تهران جهت پیگیری دعاوی ثبتی و خلع ید.">
+</head>
+<body>
+    <h1>وکیل ملکی متخصص در تهران</h1>
+    <h2>خدمات وکیل ملکی</h2>
+    <p>اگر به دنبال وکیل ملکی هستید با دفتر ما تماس بگیرید.</p>
+</body>
+</html>"""
+
+    response = client.post(
+        f"/api/v1/urls/{url_id}/audits/run",
+        json={"html_content": sample_html, "target_keyword": "وکیل ملکی"},
+    )
+    assert response.status_code == 201
+    audit = response.json()
+    assert audit["status"] == "completed"
+
+    decoded_summary = decode_audit_summary(audit["summary"])
+    assert decoded_summary.get("keyword_analysis") is not None
+    kw_analysis = decoded_summary["keyword_analysis"]
+    assert kw_analysis["target_keyword"] == "وکیل ملکی"
+    assert kw_analysis["metrics"]["in_title"] is True
+    assert kw_analysis["metrics"]["in_h1"] is True
+    assert kw_analysis["metrics"]["keyword_count"] >= 3
