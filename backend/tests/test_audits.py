@@ -1,3 +1,6 @@
+from app.services.audit_service import decode_audit_summary
+
+
 def test_audit_crud(client, seed_url):
     url_id = seed_url["id"]
     site_id = seed_url["site_id"]
@@ -40,3 +43,45 @@ def test_audit_invalid_url(client):
         json={"status": "pending"},
     )
     assert response.status_code == 404
+
+
+def test_run_audit_endpoint_with_html(client, seed_url):
+    url_id = seed_url["id"]
+    sample_html = """<!DOCTYPE html>
+<html lang="fa">
+<head>
+    <title>عنوان تست مشاوره حقوقی وکلای دادگستری</title>
+    <meta name="description" content="توضیحات متای تست برای آنالیز سئوی آنلاین وکیل پایه یک دادگستری و مشاوره حقوقی تخصصی.">
+</head>
+<body>
+    <h1>عنوان اصلی صفحه وکالت</h1>
+    <h2>بخش خدمات</h2>
+    <p>""" + " متن نمونه سئوی محتوا." * 40 + """</p>
+</body>
+</html>"""
+
+    response = client.post(
+        f"/api/v1/urls/{url_id}/audits/run",
+        json={"html_content": sample_html},
+    )
+    assert response.status_code == 201
+    audit = response.json()
+    assert audit["url_id"] == url_id
+    assert audit["status"] == "completed"
+    assert audit["score"] is not None
+    assert audit["score"] > 70
+
+    # Verify summary JSON decoding helper
+    decoded_summary = decode_audit_summary(audit["summary"])
+    assert decoded_summary["engine_version"] == "1.0.0"
+    assert decoded_summary["ruleset_version"] == "1.0.0"
+    assert "metrics" in decoded_summary
+    assert "score_breakdown" in decoded_summary
+
+    # Verify Url model updated fields
+    url_res = client.get(f"/api/v1/urls/{url_id}")
+    assert url_res.status_code == 200
+    url_data = url_res.json()
+    assert url_data["title"] == "عنوان تست مشاوره حقوقی وکلای دادگستری"
+    assert url_data["meta_description"] == "توضیحات متای تست برای آنالیز سئوی آنلاین وکیل پایه یک دادگستری و مشاوره حقوقی تخصصی."
+    assert url_data["last_crawled_at"] is not None

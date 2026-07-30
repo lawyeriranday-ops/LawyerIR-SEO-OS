@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
 from app.api.errors import handle_service_error
-from app.schemas.audit import AuditCreate, AuditRead, AuditUpdate
+from app.schemas.audit import AuditCreate, AuditRead, AuditRunRequest, AuditUpdate
 from app.schemas.common import PaginatedResponse
 from app.services.audit_service import AuditService
 from app.services.site_service import SiteService
@@ -69,6 +69,20 @@ def list_site_audits(
 def create_url_audit(url_id: uuid.UUID, data: AuditCreate, db: Session = Depends(get_db)):
     try:
         audit = audit_service.create_audit(db, url_id, data)
+        return _audit_to_read(audit)
+    except ValueError as exc:
+        handle_service_error(exc)
+
+
+@router.post("/urls/{url_id}/audits/run", response_model=AuditRead, status_code=201)
+async def run_url_audit(
+    url_id: uuid.UUID,
+    payload: AuditRunRequest | None = None,
+    db: Session = Depends(get_db),
+):
+    html_content = payload.html_content if payload else None
+    try:
+        audit = await audit_service.async_run_audit_for_url(db, url_id, html_content=html_content)
         return _audit_to_read(audit)
     except ValueError as exc:
         handle_service_error(exc)

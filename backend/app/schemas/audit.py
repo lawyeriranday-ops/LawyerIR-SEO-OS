@@ -28,3 +28,7 @@ class AuditRead(BaseModel):
     score: int | None
     summary: str | None
     created_at: datetime
+
+
+class AuditRunRequest(BaseModel):
+    html_content: str | None = Field(default=None, description="Optional raw HTML content to analyze instead of fetching live URL")
